@@ -3,13 +3,16 @@ Discord Welcome Bot
 Sends a welcome card with the new member's avatar when someone joins the server.
 """
 
+import asyncio
 import os
 import sys
 import discord
 import aiohttp
+from discord.ext import tasks
 
-from config import BOT_TOKEN, WELCOME_CHANNEL_ID
+from config import BOT_TOKEN, WELCOME_CHANNEL_ID, EMAIL_ADDRESS, EMAIL_PASSWORD, IMAP_SERVER, CROWDWORKS_CHANNEL_ID
 from welcome_card import create_welcome_card
+from crowdworks_notifier import fetch_new_crowdworks_messages
 
 LOCK_FILE = "bot.lock"
 BANNED_WORDS_FILE = "banned_words.txt"
@@ -60,6 +63,31 @@ intents.message_content = True # Required to read message content
 client = discord.Client(intents=intents)
 
 
+@tasks.loop(seconds=60)
+async def check_crowdworks_emails():
+    """Poll Gmail every 60 seconds for unread CrowdWorks notification emails."""
+    channel = client.get_channel(CROWDWORKS_CHANNEL_ID)
+    if channel is None:
+        print(f"[CROWDWORKS] Channel {CROWDWORKS_CHANNEL_ID} not found.")
+        return
+
+    messages = await asyncio.to_thread(
+        fetch_new_crowdworks_messages, IMAP_SERVER, EMAIL_ADDRESS, EMAIL_PASSWORD
+    )
+
+    for msg in messages:
+        embed = discord.Embed(
+            title=msg["subject"] or "CrowdWorks Message",
+            description=msg["body"][:2000] if msg["body"] else "(No content)",
+            color=0x00b4d8,
+        )
+        embed.set_author(name="CrowdWorks Notification")
+        embed.add_field(name="From", value=msg["sender"], inline=True)
+        embed.add_field(name="Date", value=msg["date"], inline=True)
+        await channel.send(embed=embed)
+        print(f"[CROWDWORKS] Posted notification: {msg['subject']}")
+
+
 @client.event
 async def on_ready():
     print(f"Bot is online as {client.user} (ID: {client.user.id})")
@@ -70,6 +98,9 @@ async def on_ready():
             print(f"  - {guild.name} (ID: {guild.id})")
     else:
         print("[WARNING] Bot is not in any server. Invite it using the OAuth2 URL from the Developer Portal.")
+    if not check_crowdworks_emails.is_running():
+        check_crowdworks_emails.start()
+        print("[CROWDWORKS] Email polling started (every 60s).")
     print("------")
 
 
