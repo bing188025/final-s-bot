@@ -1,0 +1,15 @@
+# Format: word:action
+# Actions: warn, kick, ban
+# - warn = sends a warning (auto-kick after 3 warnings)
+# - kick = kicks the member immediately
+# - ban  = bans the member immediately
+scammer:ban
+shit:warn
+go away:warn
+sonta:warn
+soto:warn
+sotoress:warn
+uak:warn
+scam:ban
+go to hell:kick
+come here:warn
