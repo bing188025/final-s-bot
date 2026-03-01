@@ -4,6 +4,7 @@ Sends a welcome card with the new member's avatar when someone joins the server.
 """
 
 import asyncio
+import json
 import os
 import sys
 
@@ -24,8 +25,20 @@ from welcome_card import create_welcome_card
 from crowdworks_notifier import fetch_new_crowdworks_messages
 from lancers_scraper import fetch_lancers_jobs
 
-# Track already-posted Lancers job IDs to avoid duplicates
-seen_lancers_ids: set[str] = set()
+SEEN_JOBS_FILE = "seen_jobs.json"
+
+def _load_seen_ids() -> set[str]:
+    if os.path.exists(SEEN_JOBS_FILE):
+        with open(SEEN_JOBS_FILE) as f:
+            return set(json.load(f))
+    return set()
+
+def _save_seen_ids(ids: set[str]) -> None:
+    with open(SEEN_JOBS_FILE, "w") as f:
+        json.dump(list(ids), f)
+
+# Track already-posted Lancers job IDs (persisted across restarts)
+seen_lancers_ids: set[str] = _load_seen_ids()
 
 # Persistent aiohttp session for Lancers scraping (created in on_ready)
 _lancers_session: aiohttp.ClientSession | None = None
@@ -104,9 +117,9 @@ async def check_crowdworks_emails():
         print(f"[CROWDWORKS] Posted notification: {msg['subject']}")
 
 
-@tasks.loop(seconds=10)
+@tasks.loop(seconds=5)
 async def check_lancers_jobs():
-    """Scrape Lancers every 10 seconds and post new job listings."""
+    """Scrape Lancers every 5 seconds and post new job listings."""
     global _lancers_session
     channel = client.get_channel(LANCERS_CHANNEL_ID)
     if channel is None:
@@ -115,10 +128,16 @@ async def check_lancers_jobs():
 
     jobs = await fetch_lancers_jobs(_lancers_session, LANCERS_BLOCKED_CLIENTS)
 
+    # Log the most recently posted job on every poll
+    if jobs:
+        latest = jobs[0]
+        print(f"[LANCERS] Latest: {latest['title'][:55]} | {latest['client_name']}")
+
     new_jobs = [j for j in jobs if j["id"] not in seen_lancers_ids]
 
     for job in new_jobs:
         seen_lancers_ids.add(job["id"])
+        _save_seen_ids(seen_lancers_ids)
 
         embed = discord.Embed(
             title=job["title"],
@@ -164,10 +183,11 @@ async def on_ready():
         check_crowdworks_emails.start()
         print("[CROWDWORKS] Email polling started (every 60s).")
     global _lancers_session
-    _lancers_session = aiohttp.ClientSession()
+    connector = aiohttp.TCPConnector(limit=10, keepalive_timeout=30, enable_cleanup_closed=True)
+    _lancers_session = aiohttp.ClientSession(connector=connector)
     if not check_lancers_jobs.is_running():
         check_lancers_jobs.start()
-        print("[LANCERS] Job polling started (every 10s, concurrent fetch).")
+        print("[LANCERS] Job polling started (every 5s, concurrent fetch, lxml parser).")
     print("------")
 
 

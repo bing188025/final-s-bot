@@ -1,11 +1,11 @@
 """
 Lancers job scraper.
-Fetches new job listings from Lancers search pages and returns structured data.
+Uses lxml with XPath for maximum parsing speed.
 """
 
 import asyncio
 import aiohttp
-from bs4 import BeautifulSoup
+from lxml import html as lxml_html
 
 HEADERS = {
     "User-Agent": (
@@ -22,42 +22,51 @@ SEARCH_URLS = [
 ]
 
 
-def _parse_jobs(html: str, blocked_clients: list[str]) -> list[dict]:
-    soup = BeautifulSoup(html, "html.parser")
+def _parse_jobs(page_html: str, blocked_clients: set[str]) -> list[dict]:
+    tree = lxml_html.fromstring(page_html)
     jobs = []
 
-    for card in soup.select(".p-search-job-media"):
+    for card in tree.xpath('//div[contains(@class, "p-search-job-media") and contains(@class, "c-media--item")]'):
         # Title and link
-        title_el = card.select_one(".p-search-job-media__title")
-        if not title_el:
+        title_els = card.xpath('.//a[contains(@class, "p-search-job-media__title")]')
+        if not title_els:
             continue
+        title_el = title_els[0]
 
         href = title_el.get("href", "")
-        # Strip badge text (e.g. "NEW") from title
-        for tag in title_el.select(".p-search-job-media__tag"):
-            tag.decompose()
-        title = title_el.get_text(strip=True)
-
-        job_url = "https://www.lancers.jp" + href if href else ""
         job_id = href.strip("/").split("/")[-1] if href else ""
         if not job_id:
             continue
 
+        job_url = "https://www.lancers.jp" + href
+        if not job_url.startswith("https://"):
+            continue
+
+        # Title text — exclude tag text (e.g. "NEW")
+        tag_texts = title_el.xpath('.//li[contains(@class, "p-search-job-media__tag")]/text()')
+        full_text = title_el.text_content().strip()
+        for t in tag_texts:
+            full_text = full_text.replace(t.strip(), "", 1).strip()
+        title = full_text
+
         # Price
-        price_el = card.select_one(".p-search-job-media__price")
-        price = price_el.get_text(strip=True) if price_el else "要相談"
+        price_els = card.xpath('.//span[contains(@class, "p-search-job-media__price")]')
+        price = price_els[0].text_content().strip() if price_els else "要相談"
 
         # Client name
-        client_name_el = card.select_one(".p-search-job-media__avatar-note a")
-        client_name = client_name_el.get_text(strip=True) if client_name_el else "不明"
+        client_els = card.xpath('.//p[contains(@class, "p-search-job-media__avatar-note")]/a')
+        client_name = client_els[0].text_content().strip() if client_els else "不明"
 
-        # Skip blocked clients
         if client_name in blocked_clients:
             continue
 
-        # Client avatar
-        avatar_el = card.select_one("img.c-avatar__image")
-        client_avatar = avatar_el.get("src", "") if avatar_el else ""
+        # Client avatar — fix protocol-relative URLs
+        avatar_els = card.xpath('.//img[contains(@class, "c-avatar__image")]')
+        client_avatar = avatar_els[0].get("src", "") if avatar_els else ""
+        if client_avatar.startswith("//"):
+            client_avatar = "https:" + client_avatar
+        if not client_avatar.startswith("https://"):
+            client_avatar = ""
 
         jobs.append({
             "id": job_id,
@@ -71,14 +80,15 @@ def _parse_jobs(html: str, blocked_clients: list[str]) -> list[dict]:
     return jobs
 
 
-async def _fetch_url(session: aiohttp.ClientSession, url: str, blocked_clients: list[str]) -> list[dict]:
+async def _fetch_url(session: aiohttp.ClientSession, url: str, blocked_clients: set[str]) -> list[dict]:
     try:
         async with session.get(url, headers=HEADERS, timeout=aiohttp.ClientTimeout(total=10)) as resp:
             if resp.status != 200:
                 print(f"[LANCERS] Failed to fetch {url}: HTTP {resp.status}")
                 return []
-            html = await resp.text()
-            return _parse_jobs(html, blocked_clients)
+            data = await resp.read()
+            page_html = data.decode("utf-8", errors="replace")
+            return _parse_jobs(page_html, blocked_clients)
     except Exception as e:
         print(f"[LANCERS] Error fetching {url}: {e}")
         return []
@@ -86,5 +96,6 @@ async def _fetch_url(session: aiohttp.ClientSession, url: str, blocked_clients: 
 
 async def fetch_lancers_jobs(session: aiohttp.ClientSession, blocked_clients: list[str]) -> list[dict]:
     """Fetch both Lancers search URLs concurrently and return all jobs."""
-    results = await asyncio.gather(*[_fetch_url(session, url, blocked_clients) for url in SEARCH_URLS])
+    bc = set(blocked_clients)
+    results = await asyncio.gather(*[_fetch_url(session, url, bc) for url in SEARCH_URLS])
     return [job for page_jobs in results for job in page_jobs]
