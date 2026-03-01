@@ -1,0 +1,43 @@
+[2026-02-28 19:38:18] [INFO    ] discord.client: logging in using static token
+[2026-02-28 19:38:19] [INFO    ] discord.gateway: Shard ID None has connected to Gateway (Session ID: 3402916606e46759f8b46b0eb5313055).
+Bot is online as nero#8709 (ID: 1477325420016701451)
+Welcome channel ID: 1471519292704030760
+Connected to servers:
+  - Final (ID: 1471514959216246963)
+[CROWDWORKS] Email polling started (every 60s).
+[LANCERS] Job polling started (every 5s, concurrent fetch, lxml parser).
+------
+[2026-02-28 19:44:52] [WARNING ] discord.http: We are being rate limited. POST https://discord.com/api/v10/channels/1471519292704030760/messages responded with 429. Retrying in 0.92 seconds.
+[2026-02-28 19:44:53] [WARNING ] discord.http: We are being rate limited. POST https://discord.com/api/v10/channels/1471519292704030760/messages responded with 429. Retrying in 0.78 seconds.
+[2026-02-28 19:44:54] [WARNING ] discord.http: We are being rate limited. POST https://discord.com/api/v10/channels/1471519292704030760/messages responded with 429. Retrying in 0.83 seconds.
+[2026-02-28 19:44:55] [WARNING ] discord.http: We are being rate limited. POST https://discord.com/api/v10/channels/1471519292704030760/messages responded with 429. Retrying in 0.83 seconds.
+[2026-02-28 19:44:56] [WARNING ] discord.http: We are being rate limited. POST https://discord.com/api/v10/channels/1471519292704030760/messages responded with 429. Retrying in 0.84 seconds.
+[2026-02-28 19:44:57] [ERROR   ] discord.client: Ignoring exception in on_member_join
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\discord\client.py", line 504, in _run_event
+    await coro(*args, **kwargs)
+  File "C:\Users\Administrator\discord-welcome-bot\bot.py", line 226, in on_member_join
+    await channel.send(
+    ...<2 lines>...
+    )
+  File "C:\Users\Administrator\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\discord\abc.py", line 1703, in send
+    data = await state.http.send_message(channel.id, params=params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\discord\http.py", line 788, in request
+    raise HTTPException(response, data)
+discord.errors.HTTPException: 429 Too Many Requests (error code: 0): You are being rate limited.
+[2026-02-28 19:56:59] [WARNING ] discord.http: We are being rate limited. POST https://discord.com/api/v10/channels/1471519292704030760/messages responded with 429. Retrying in 0.92 seconds.
+[INFO] Welcomed boca9570 (#6)
+[LANCERS] New job: 製造業向け設備要件定義書の自動生成AIシステムの開発・DB設計支援エンジニア（AI／バックエンド） | Taka
+[LANCERS] Posted: 製造業向け設備要件定義書の自動生成AIシステムの開発・DB設計支援エンジニア（AI／バックエンド）
+[LANCERS] 1 new job(s) posted.
+[LANCERS] New job: ネイティブjs案件　長期でご依頼できるパートナー大募集！ | コマースchat
+[LANCERS] Posted: ネイティブjs案件　長期でご依頼できるパートナー大募集！
+[LANCERS] 1 new job(s) posted.
+[2026-02-28 20:55:41] [INFO    ] discord.gateway: Shard ID None has successfully RESUMED session 3402916606e46759f8b46b0eb5313055.
+[CROWDWORKS] Posted notification: 【クラウドワークス】OTEMOTOさんからメッセージが届いています
+[2026-02-28 23:51:24] [INFO    ] discord.gateway: Shard ID None has successfully RESUMED session 3402916606e46759f8b46b0eb5313055.
+[LANCERS] New job: 【継続有】IT業界人材事業のSNS広告のバナー・LPデザイン・動画編集等できる方を募集します | 松本
+[2026-03-01 00:23:23] [WARNING ] discord.http: We are being rate limited. POST https://discord.com/api/v10/channels/1477466407774978119/messages responded with 429. Retrying in 0.78 seconds.
+[LANCERS] Posted: 【継続有】IT業界人材事業のSNS広告のバナー・LPデザイン・動画編集等できる方を募集します
+[LANCERS] 1 new job(s) posted.
