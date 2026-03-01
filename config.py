@@ -16,3 +16,5 @@ EMAIL_ADDRESS = os.environ["EMAIL_ADDRESS"]
 EMAIL_PASSWORD = os.environ["EMAIL_PASSWORD"]
 IMAP_SERVER = os.environ.get("IMAP_SERVER", "imap.gmail.com")
 CROWDWORKS_CHANNEL_ID = int(os.environ["CROWDWORKS_CHANNEL_ID"])
+LANCERS_CHANNEL_ID = int(os.environ["LANCERS_CHANNEL_ID"])
+LANCERS_BLOCKED_CLIENTS = [c.strip() for c in os.environ.get("LANCERS_BLOCKED_CLIENTS", "").split(",") if c.strip()]

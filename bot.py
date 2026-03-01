@@ -6,13 +6,29 @@ Sends a welcome card with the new member's avatar when someone joins the server.
 import asyncio
 import os
 import sys
+
+# Fix Unicode output on Windows console
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 import discord
 import aiohttp
 from discord.ext import tasks
 
-from config import BOT_TOKEN, WELCOME_CHANNEL_ID, EMAIL_ADDRESS, EMAIL_PASSWORD, IMAP_SERVER, CROWDWORKS_CHANNEL_ID
+from config import (
+    BOT_TOKEN, WELCOME_CHANNEL_ID,
+    EMAIL_ADDRESS, EMAIL_PASSWORD, IMAP_SERVER, CROWDWORKS_CHANNEL_ID,
+    LANCERS_CHANNEL_ID, LANCERS_BLOCKED_CLIENTS,
+)
 from welcome_card import create_welcome_card
 from crowdworks_notifier import fetch_new_crowdworks_messages
+from lancers_scraper import fetch_lancers_jobs
+
+# Track already-posted Lancers job IDs to avoid duplicates
+seen_lancers_ids: set[str] = set()
+
+# Persistent aiohttp session for Lancers scraping (created in on_ready)
+_lancers_session: aiohttp.ClientSession | None = None
 
 LOCK_FILE = "bot.lock"
 BANNED_WORDS_FILE = "banned_words.txt"
@@ -88,6 +104,52 @@ async def check_crowdworks_emails():
         print(f"[CROWDWORKS] Posted notification: {msg['subject']}")
 
 
+@tasks.loop(seconds=10)
+async def check_lancers_jobs():
+    """Scrape Lancers every 10 seconds and post new job listings."""
+    global _lancers_session
+    channel = client.get_channel(LANCERS_CHANNEL_ID)
+    if channel is None:
+        print(f"[LANCERS] Channel {LANCERS_CHANNEL_ID} not found.")
+        return
+
+    jobs = await fetch_lancers_jobs(_lancers_session, LANCERS_BLOCKED_CLIENTS)
+
+    new_jobs = [j for j in jobs if j["id"] not in seen_lancers_ids]
+
+    for job in new_jobs:
+        seen_lancers_ids.add(job["id"])
+
+        embed = discord.Embed(
+            title=job["title"],
+            url=job["url"],
+            color=0x00c8a0,
+        )
+        embed.set_author(
+            name="新着案件 | Lancers",
+            icon_url="https://www.lancers.jp/favicon.ico",
+        )
+        if job["client_avatar"]:
+            embed.set_thumbnail(url=job["client_avatar"])
+        embed.add_field(name="💰 報酬", value=job["price"], inline=True)
+        embed.add_field(name="👤 クライアント", value=job["client_name"], inline=True)
+        embed.add_field(name="🔗 リンク", value=job["url"], inline=False)
+
+        view = discord.ui.View()
+        view.add_item(discord.ui.Button(
+            label="案件を開く",
+            url=job["url"],
+            style=discord.ButtonStyle.link,
+            emoji="🔗",
+        ))
+
+        await channel.send(embed=embed, view=view)
+        print(f"[LANCERS] Posted: {job['title'][:60]}")
+
+    if new_jobs:
+        print(f"[LANCERS] {len(new_jobs)} new job(s) posted.")
+
+
 @client.event
 async def on_ready():
     print(f"Bot is online as {client.user} (ID: {client.user.id})")
@@ -101,6 +163,11 @@ async def on_ready():
     if not check_crowdworks_emails.is_running():
         check_crowdworks_emails.start()
         print("[CROWDWORKS] Email polling started (every 60s).")
+    global _lancers_session
+    _lancers_session = aiohttp.ClientSession()
+    if not check_lancers_jobs.is_running():
+        check_lancers_jobs.start()
+        print("[LANCERS] Job polling started (every 10s, concurrent fetch).")
     print("------")
 
 

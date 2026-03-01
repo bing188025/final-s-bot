@@ -13,3 +13,5 @@ uak:warn
 scam:ban
 go to hell:kick
 come here:warn
+I will kill you:ban
+trading:kick
